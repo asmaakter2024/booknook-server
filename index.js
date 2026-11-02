@@ -6,6 +6,7 @@ const app = express();
 const PORT = 8000;
 
 app.use(cors());
+app.use(express.json());
 
 const client = new MongoClient(process.env.MONGODB_URI);
 
@@ -19,11 +20,21 @@ export async function connectToMongoDB() {
   }
 }
 
-connectToMongoDB();
+const mongoClient = await connectToMongoDB();
+const db = mongoClient.db("booknook");
+const bookscollection = db.collection("books");
 
 //http:localhost:8000/add-book
-app.post("/add-book", (req, res) => {
-  console.log("Api called");
+app.post("/add-book", async (req, res) => {
+  const data = req.body;
+
+  const result = await bookscollection.insertOne(data);
+  console.log(result);
+
+  res.send(result);
+
+  //console.log(data);
+  //console.log("Api called");
   res.send({ message: "Api working..." });
 });
 
