@@ -38,6 +38,14 @@ app.post("/add-book", async (req, res) => {
   res.send({ message: "Api working..." });
 });
 
+//api create
+//database or backend theke kono jinis get kora
+app.get("/books", async (req, res) => {
+  const result = await bookscollection.find().toArray();
+  console.log("books data get");
+  res.send(result);
+});
+
 //http://localhost:8000
 
 app.get("/", (req, res) => {
