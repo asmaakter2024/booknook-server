@@ -204,6 +204,15 @@ app.post("/borrows", async (req, res) => {
       return res.status(500).send({ message: "Database is not connected." });
     }
 
+    // [NO DOUBLE BORROW]: একই ইউজার একই বই দুইবার ধার নিতে পারবে না — আগে চেক করা হচ্ছে
+    const alreadyBorrowed = await borrowscollection.findOne({
+      bookId: new ObjectId(bookId),
+      userEmail: userEmail.trim(),
+    });
+    if (alreadyBorrowed) {
+      return res.status(409).send({ message: "You have already borrowed this book. Return it first before borrowing again." });
+    }
+
     // ১. বইটি চেক করা এবং কোনো কপি বাকি আছে কিনা তা নিশ্চিত করা
     const book = await bookscollection.findOne({ _id: new ObjectId(bookId) });
     if (!book) {
