@@ -9,10 +9,22 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 
+const verifyApi = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log(authHeader);
+  if (authHeader !== "user logged in") {
+    return res.status(404).send({ msg: "Unauthorized" });
+  }
+  console.log("I am middleware");
+  next();
+};
+
 // [FIX 1]: MONGODB_URI চেক করা যাতে env ভ্যারিয়েবল মিসিং থাকলে শুরুতেই স্পষ্ট এরর দেয়
 const uri = process.env.MONGODB_URI;
 if (!uri) {
-  console.error("Error: MONGODB_URI environment variable is not defined in .env file.");
+  console.error(
+    "Error: MONGODB_URI environment variable is not defined in .env file.",
+  );
 }
 
 const client = new MongoClient(uri);
@@ -38,7 +50,7 @@ export async function connectToMongoDB() {
 await connectToMongoDB();
 
 // Root route
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
   res.send({ message: "Server is running fine!" });
 });
 
@@ -56,7 +68,9 @@ app.post("/add-book", async (req, res) => {
     res.status(201).send(result);
   } catch (err) {
     console.error("Error adding book:", err);
-    res.status(500).send({ message: "Failed to add book.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to add book.", error: err.message });
   }
 });
 
@@ -75,7 +89,9 @@ app.get("/latest-books", async (req, res) => {
     res.send(result);
   } catch (err) {
     console.error("Error fetching latest books:", err);
-    res.status(500).send({ message: "Failed to fetch latest books.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to fetch latest books.", error: err.message });
   }
 });
 
@@ -89,7 +105,9 @@ app.get("/books", async (req, res) => {
     res.send(result);
   } catch (err) {
     console.error("Error fetching books:", err);
-    res.status(500).send({ message: "Failed to fetch books.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to fetch books.", error: err.message });
   }
 });
 
@@ -105,7 +123,9 @@ app.get("/my-books", async (req, res) => {
     res.send(result);
   } catch (err) {
     console.error("Error fetching my books:", err);
-    res.status(500).send({ message: "Failed to fetch my books.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to fetch my books.", error: err.message });
   }
 });
 
@@ -120,7 +140,8 @@ app.put("/books/:id", async (req, res) => {
       return res.status(500).send({ message: "Database is not connected." });
     }
 
-    const { title, author, category, totalCopies, image, description } = req.body;
+    const { title, author, category, totalCopies, image, description } =
+      req.body;
     const updateDoc = {
       $set: {
         title,
@@ -132,11 +153,16 @@ app.put("/books/:id", async (req, res) => {
       },
     };
 
-    const result = await bookscollection.updateOne({ _id: new ObjectId(id) }, updateDoc);
+    const result = await bookscollection.updateOne(
+      { _id: new ObjectId(id) },
+      updateDoc,
+    );
     res.send({ success: true, message: "Book updated successfully!", result });
   } catch (err) {
     console.error("Error updating book:", err);
-    res.status(500).send({ message: "Failed to update book.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to update book.", error: err.message });
   }
 });
 
@@ -158,12 +184,14 @@ app.delete("/books/:id", async (req, res) => {
     res.send({ success: true, message: "Book deleted successfully!" });
   } catch (err) {
     console.error("Error deleting book:", err);
-    res.status(500).send({ message: "Failed to delete book.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to delete book.", error: err.message });
   }
 });
 
 // [FIX 6]: /books/:id এ ObjectId ভ্যালিডেশন এবং 404 হ্যান্ডেলিং
-app.get("/books/:id", async (req, res) => {
+app.get("/books/:id", verifyApi, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -183,7 +211,9 @@ app.get("/books/:id", async (req, res) => {
     res.send(result);
   } catch (err) {
     console.error("Error fetching book details:", err);
-    res.status(500).send({ message: "Failed to fetch book details.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to fetch book details.", error: err.message });
   }
 });
 
@@ -197,7 +227,9 @@ app.post("/borrows", async (req, res) => {
     }
 
     if (!userName || !userEmail) {
-      return res.status(400).send({ message: "User name and email are required." });
+      return res
+        .status(400)
+        .send({ message: "User name and email are required." });
     }
 
     if (!bookscollection || !borrowscollection) {
@@ -210,7 +242,10 @@ app.post("/borrows", async (req, res) => {
       userEmail: userEmail.trim(),
     });
     if (alreadyBorrowed) {
-      return res.status(409).send({ message: "You have already borrowed this book. Return it first before borrowing again." });
+      return res.status(409).send({
+        message:
+          "You have already borrowed this book. Return it first before borrowing again.",
+      });
     }
 
     // ১. বইটি চেক করা এবং কোনো কপি বাকি আছে কিনা তা নিশ্চিত করা
@@ -221,13 +256,15 @@ app.post("/borrows", async (req, res) => {
 
     const availableCopies = Number(book.totalCopies || 0);
     if (availableCopies <= 0) {
-      return res.status(400).send({ message: "Sorry, no copies available for this book." });
+      return res
+        .status(400)
+        .send({ message: "Sorry, no copies available for this book." });
     }
 
     // ২. বইয়ের মোট কপি ১ কমানো ($inc: { totalCopies: -1 })
     await bookscollection.updateOne(
       { _id: new ObjectId(bookId) },
-      { $inc: { totalCopies: -1 } }
+      { $inc: { totalCopies: -1 } },
     );
 
     // ৩. ধার নেওয়া তারিখ ও ফেরত দেওয়ার তারিখ (৮ দিন পর)
@@ -254,7 +291,9 @@ app.post("/borrows", async (req, res) => {
     });
   } catch (err) {
     console.error("Error borrowing book:", err);
-    res.status(500).send({ message: "Failed to borrow book.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to borrow book.", error: err.message });
   }
 });
 
@@ -271,7 +310,9 @@ app.get("/borrows", async (req, res) => {
     res.send(result);
   } catch (err) {
     console.error("Error fetching borrows:", err);
-    res.status(500).send({ message: "Failed to fetch borrows.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to fetch borrows.", error: err.message });
   }
 });
 
@@ -298,7 +339,7 @@ app.delete("/borrows/:id", async (req, res) => {
     if (borrow.bookId) {
       await bookscollection.updateOne(
         { _id: new ObjectId(borrow.bookId) },
-        { $inc: { totalCopies: 1 } }
+        { $inc: { totalCopies: 1 } },
       );
     }
 
@@ -308,7 +349,9 @@ app.delete("/borrows/:id", async (req, res) => {
     res.send({ success: true, message: "Book returned successfully!" });
   } catch (err) {
     console.error("Error returning book:", err);
-    res.status(500).send({ message: "Failed to return book.", error: err.message });
+    res
+      .status(500)
+      .send({ message: "Failed to return book.", error: err.message });
   }
 });
 
