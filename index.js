@@ -2,6 +2,7 @@ import express from "express";
 import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
 import cors from "cors";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -9,14 +10,39 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 
-const verifyApi = (req, res, next) => {
+// const verifyApi = (req, res, next) => {
+//   const authHeader = req.headers.authorization;
+//   console.log(authHeader);
+//   if (authHeader !== "user logged in") {
+//     return res.status(404).send({ msg: "Unauthorized" });
+//   }
+//   console.log("I am middleware");
+//   next();
+// };
+
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   console.log(authHeader);
-  if (authHeader !== "user logged in") {
-    return res.status(404).send({ msg: "Unauthorized" });
+  if (!authHeader) {
+    return res.status(401).send({ msg: "Unauthorized!" });
   }
-  console.log("I am middleware");
-  next();
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ msg: "Unauthorized!" });
+  }
+
+  const JWKS = createRemoteJWKSet(
+    // new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
+    new URL(`{${process.env.CLIENT_URL}/api/auth/jwks}`),
+  );
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    console.log(payload);
+    next();
+  } catch (error) {
+    return res.status(500).send({ msg: "Server Error!" });
+  }
 };
 
 // [FIX 1]: MONGODB_URI চেক করা যাতে env ভ্যারিয়েবল মিসিং থাকলে শুরুতেই স্পষ্ট এরর দেয়
@@ -36,7 +62,7 @@ let borrowscollection;
 
 export async function connectToMongoDB() {
   try {
-    await client.connect();
+    //await client.connect();
     console.log("You successfully connected to MongoDB!");
     db = client.db("booknook");
     bookscollection = db.collection("books");
@@ -191,7 +217,7 @@ app.delete("/books/:id", async (req, res) => {
 });
 
 // [FIX 6]: /books/:id এ ObjectId ভ্যালিডেশন এবং 404 হ্যান্ডেলিং
-app.get("/books/:id", verifyApi, async (req, res) => {
+app.get("/books/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -218,7 +244,7 @@ app.get("/books/:id", verifyApi, async (req, res) => {
 });
 
 // [FIX 7]: বই ধার নেওয়া (Borrow Book)
-app.post("/borrows", async (req, res) => {
+app.post("/borrows", verifyToken, async (req, res) => {
   try {
     const { bookId, userName, userEmail } = req.body;
 
