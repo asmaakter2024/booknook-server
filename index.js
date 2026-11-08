@@ -10,15 +10,7 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 app.use(express.json());
 
-// const verifyApi = (req, res, next) => {
-//   const authHeader = req.headers.authorization;
-//   console.log(authHeader);
-//   if (authHeader !== "user logged in") {
-//     return res.status(404).send({ msg: "Unauthorized" });
-//   }
-//   console.log("I am middleware");
-//   next();
-// };
+
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
